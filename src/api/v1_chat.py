@@ -14,46 +14,29 @@ logger = logging.getLogger(__name__)
 async def chat_endpoint(
     request: ChatRequest,
     semantic_router: SemanticToolRouter = Depends(get_semantic_router),
-    llm_service: LLMService = Depends(get_llm_service)
+    llm_service: LLMService = Depends(get_llm_service),
+    memory: MemoryService = Depends(get_memory_service) # 注入记忆服务
 ):
     try:
-        # 1. 动态工具路由 (从 17 个指令中捞出最相关的)
-        active_tools = semantic_router.get_final_prompt_tools(
-            query=request.text, 
-            top_k=2, 
-            threshold=0.55
-        )
+        # 1. 获取该用户对该机器人的历史记忆
+        history = memory.get_history(request.user_id, request.robot_id)
         
-        # 2. 组装包含机器人实时状态的 System Prompt
-        # request.state 是我们在 schemas 里定义的 RobotState
-        robot_state = f"电量 {request.state.battery}%, 正在充电: {request.state.is_charging}, 位置: {request.state.current_location}, 球篓容量: {request.state.basket_capacity}%, 硬件状态: {request.state.hardware_status}。"
+        # 2. 动态路由
+        active_tools = semantic_router.get_final_prompt_tools(request.text)
         
-        system_prompt = f"""你是一个高尔夫球场智能捡球机器人中枢Agent。
-【你的任务】
-分析用户的语音指令，结合当前机器人状态，决定下一步的动作。
-如果你觉得当前状态无法执行用户指令（例如没电了却被要求去干活），你需要向用户解释原因。
-
-【当前机器人状态】
-{robot_state}
-"""
-        
-        # 3. 呼叫大模型服务进行约束解码
-        decision: AgentDecision = await llm_service.generate_decision(
-            system_prompt=system_prompt,
+        # 3. 推理决策 (传入历史)
+        decision = await llm_service.generate_decision(
+            system_prompt=SYSTEM_PROMPT_TEMPLATE,
             user_text=request.text,
-            active_tools=active_tools
+            active_tools=active_tools,
+            history=history 
         )
         
-        # --- 这里可以插入一段异步代码，将 decision.tasks 发送给 ROS2 的 MQTT Broker ---
-        # async_send_to_ros2(request.robot_id, decision.tasks)
+        # 4. 【关键】更新记忆：存入用户的这句，和模型的回复这句
+        memory.add_message(request.user_id, request.robot_id, "user", request.text)
+        memory.add_message(request.user_id, request.robot_id, "assistant", decision.reply_to_user)
         
-        # 4. 组装给 APP 的最终返回
-        executed_action_names = [task.action_name for task in decision.tasks]
-        
-        return ChatResponse(
-            tts_text=decision.reply_to_user,
-            executed_actions=executed_action_names
-        )
+        return ChatResponse(tts_text=decision.reply_to_user, ...)
 
     except Exception as e:
         logger.error(f"Error processing chat: {e}", exc_info=True)

@@ -41,13 +41,25 @@ class LLMService:
         )
         return full_prompt
 
-    async def generate_decision(self, system_prompt: str, user_text: str, active_tools: list) -> AgentDecision:
+    async def generate_decision(
+    self, 
+    system_prompt: str, 
+    user_text: str, 
+    active_tools: list, 
+    history: list[dict] = None  # 新增历史参数
+    ) -> AgentDecision:
         """
         核心推理函数：发送请求并执行约束解码
         """
-        # 1. 组装终极 Prompt
-        full_system_prompt = self._inject_tools_into_prompt(system_prompt, active_tools)
+        # 1. 组装终极 Prompt，组装消息列表
+        messages = [{"role": "system", "content": self._inject_tools_into_prompt(system_prompt, active_tools)}]
         
+        # 注入历史记忆
+        if history:
+            messages.extend(history)
+        
+        # 加入当前用户输入
+        messages.append({"role": "user", "content": user_text})
         # 2. 提取强制输出约束 Schema
         guided_schema = AgentDecision.model_json_schema()
 
@@ -57,10 +69,7 @@ class LLMService:
             # 3. 发送异步请求
             response = await self.client.chat.completions.create(
                 model=self.model_name,
-                messages=[
-                    {"role": "system", "content": full_system_prompt},
-                    {"role": "user", "content": user_text}
-                ],
+                messages=messages,
                 temperature=0.1, # 设定极低温度，保证逻辑严谨和控制指令的确定性
                 # 【核心魔法】：将 Schema 塞给 vLLM 底层的 outlines 引擎
                 extra_body={"guided_json": guided_schema}

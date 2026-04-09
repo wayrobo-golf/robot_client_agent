@@ -9,3 +9,7 @@ def get_semantic_router(request: Request) -> SemanticToolRouter:
 
 def get_llm_service() -> LLMService:
     return LLMService()
+
+# 全局单例，通常在 main.py 初始化后挂载
+def get_memory_service(request: Request) -> MemoryService:
+    return request.app.state.memory_service
