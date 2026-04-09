@@ -2,6 +2,7 @@
 from fastapi import Request
 from src.services.semantic_router import SemanticToolRouter
 from src.services.llm_service import LLMService
+from src.services.memory_service import MemoryService
 
 def get_semantic_router(request: Request) -> SemanticToolRouter:
     # 从 FastAPI app 状态中获取全局单例

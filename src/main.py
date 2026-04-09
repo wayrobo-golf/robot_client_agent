@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
     logger.info("-> 连接 Redis 记忆数据库...")
     try:
         # 这里可以替换为从环境变量读取配置
-        memory_service = MemoryService(host="localhost", port=6379, db=0)
+        memory_service = MemoryService(host="localhost", port=6380, db=0)
         
         # 启动时执行健康检查 (Ping)
         memory_service.redis_client.ping()
