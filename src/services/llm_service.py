@@ -18,9 +18,9 @@ class LLMService:
         :param api_key: vLLM 默认不需要鉴权，填 EMPTY 即可
         :param model_name: 启动 vLLM 时注册的模型名称
         """
-        api_key = "sk-973b01b0a20040bab25fcd8c726099c7"
-        base_url = "https://api.deepseek.com/v1"
-        model_name = "deepseek-chat"
+        # api_key = "sk-973b01b0a20040bab25fcd8c726099c7"
+        # base_url = "https://api.deepseek.com/v1"
+        # model_name = "deepseek-chat"
         self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         self.model_name = model_name
         logger.info(f"LLM Service 初始化完成，指向: {base_url}, 模型: {model_name}")
